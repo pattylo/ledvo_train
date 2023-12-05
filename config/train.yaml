@@ -1,0 +1,16 @@
+# data preparation
+raw_data_file: "./.data/raw_data/"
+proc_data_file: "./.data/proc_data/"
+min_window_size: 41
+max_window_size: 201
+delete_previous: False
+generate_data: False
+
+# model target
+input_size: 4
+output_size: 3
+learning_rate: 1e-4
+epochs: 100
+
+
+
