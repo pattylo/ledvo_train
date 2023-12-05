@@ -1,4 +1,3 @@
-
 import train.traindata as td
 import os
 
