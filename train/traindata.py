@@ -87,6 +87,7 @@ class traindata:
         self.learning_rate = float(self.yaml_data.get('learning_rate'))
         
         self.epochs = self.yaml_data.get('epochs')
+        self.save_model_file = self.yaml_data.get('save_model_file')
         
         self.data_load()
         self.do_train()
@@ -165,6 +166,10 @@ class traindata:
             total=self.epochs
         ):
             self.one_epoch_train(epoch)  
+            
+        torch.save(self.network.state_dict(), 'ledvo_tcn.pt')
+        torch.save(self.network.state_dict(), self.save_model_file)
+        
                 
     def one_epoch_train(self, epoch):
         epoch_start_time = time.time()
