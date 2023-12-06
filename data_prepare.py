@@ -4,5 +4,6 @@ import os
    
 
 if __name__ == "__main__":
-    print("START TO LOAD DATA!")    
+    print('\033c')
+    print("START TO GEN DATA!")    
     data_config = ld.gendata(os.getcwd() + "/config/train.yaml")

@@ -89,6 +89,8 @@ class traindata:
         self.epochs = self.yaml_data.get('epochs')
         self.save_model_file = self.yaml_data.get('save_model_file')
         
+        self.epoch_no_save_pt = {key: None for key in range(10, 201, 10)}
+            
         self.data_load()
         self.do_train()
         pass
@@ -159,16 +161,33 @@ class traindata:
         self.f.write('Run Start Time: ' + str(time.ctime()))
         self.f.write('Learning Rate\t%f\n' % self.learning_rate)
         
+        best_loss = float('inf')
+        
         for epoch in tqdm(
             range(self.epochs),
             desc="TRAIN >>>",
             unit='epoch',
             total=self.epochs
         ):
-            self.one_epoch_train(epoch)  
-            
-        torch.save(self.network.state_dict(), 'ledvo_tcn.pt')
-        torch.save(self.network.state_dict(), self.save_model_file)
+            loss_temp = self.one_epoch_train(epoch)  
+
+            if (epoch + 1) in self.epoch_no_save_pt:
+                model_pt_name = self.save_model_file + '_' + str(epoch + 1) + '.pt'
+                if os.path.exists(model_pt_name):
+                        os.remove(model_pt_name)
+                torch.save(self.network.state_dict(), model_pt_name)
+                
+                if loss_temp < best_loss:
+                    model_pt_name = self.save_model_file + '_best.pt'
+                    
+                    if os.path.exists(model_pt_name):
+                        os.remove(model_pt_name)
+                    torch.save(self.network.state_dict(), model_pt_name)
+                    
+                    best_loss = loss_temp
+        
+        model_pt_name = self.save_model_file + '_final.pt'
+        torch.save(self.network.state_dict(), model_pt_name)
         
                 
     def one_epoch_train(self, epoch):
@@ -223,6 +242,8 @@ class traindata:
         print("========================================================")
         print("========================================================")
         print()
+        
+        return epoch_loss
         
     def loss(self, dp_preds, dp_targets):
         errs = dp_preds - dp_targets
