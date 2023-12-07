@@ -12,10 +12,8 @@ import time
 import shutil
 
 class gendata:
-    def __init__(self, config_filepath) -> None:
-        yaml_file_path = config_filepath
-        
-        with open(yaml_file_path, 'r') as file:
+    def __init__(self, config_filepath) -> None:        
+        with open(config_filepath, 'r') as file:
             self.yaml_data = yaml.safe_load(file)
                 
         self.raw_data_folder = self.yaml_data.get('raw_data_file')
@@ -25,7 +23,15 @@ class gendata:
         
         self.delete_previous = self.yaml_data.get('delete_previous')
 
-
+        self.generate_new = self.yaml_data.get('generate_new')   
+                
+        if self.delete_previous:
+            self.delete_previous_data()
+                
+        if self.generate_new:
+            self.gen_all_data()  
+            
+    def delete_previous_data(self):
         # Check if the specified path is a directory
         if os.path.exists(self.proc_data_folder) and os.path.isdir(self.proc_data_folder):
             # Get a list of all subdirectories
@@ -39,14 +45,10 @@ class gendata:
                     print(f"Directory '{folder_path}' removed successfully.")
                 except OSError as e:
                     print(f"Error: {e}")
+                    sys.exit()
         else:
             print(f"The specified path '{self.proc_data_folder}' is not a directory or does not exist.")
-
-        print()
-
-        self.generate_data = self.yaml_data.get('generate_data')
-        if self.generate_data:
-            self.gen_all_data()   
+            sys.exit()
     
     def gen_all_data(self):
         begin_time = time.time()
@@ -86,7 +88,8 @@ class gendata:
                 
     def main_loading(self, folderpath, filename, min_window_size, max_window_size, index):
         # print(folderpath + filename)
-        window_sizes = list(range(min_window_size, max_window_size))
+        window_sizes = list(range(min_window_size, max_window_size+1))
+        
         data_raw = pd.read_csv(folderpath + filename)
         # print(data_raw.shape)
         
@@ -111,9 +114,10 @@ class gendata:
                 input_tensor_data = input_tensor_data.t()
                 
                 padding = (
-                    max_window_size - input_tensor_data.size(1), 0,  # Padding for the second dimension
-                    4 - input_tensor_data.size(0), 0   # Padding for the first dimension
+                    max_window_size - input_tensor_data.size(1), 0   
+                    # Padding for the last dimension
                 )
+                
                 input_tensor_data = torch.nn.functional.pad(
                     input=input_tensor_data,
                     pad=padding,

@@ -192,9 +192,10 @@ class traindata:
                 
     def one_epoch_train(self, epoch):
         epoch_start_time = time.time()
-        epoch_loss = 0.0
         
         # train
+        epoch_loss = 0.0
+        train_iteration = 0
         for i, data in enumerate(self.train_loader):
 
             input_train_data = data["inputs"]
@@ -214,9 +215,12 @@ class traindata:
             self.optimizer.step()
             
             epoch_loss += batch_loss.item()
+            
+            train_iteration = train_iteration + 1
 
         # test
         test_loss_all = 0
+        test_iteration = 0
         with torch.no_grad():
             for i, data in enumerate(self.test_loader):
                 
@@ -230,15 +234,17 @@ class traindata:
                 test_loss = self.loss(dp_preds=outputs, dp_targets=input_test_target)
                 test_loss = test_loss.mean()
                 test_loss_all = test_loss_all + test_loss
+                test_iteration = test_iteration + 1
                 
 
         # print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-        self.f.write("Epoch\t%d\tLoss\t%f\t,\tTest\tLoss\t%f\n" % (epoch + 1, epoch_loss / (i + 1), test_loss_all / (i + 1)))
+        self.f.write("Epoch\t%d\tLoss\t%f\t%f\t,\tTest\tLoss\t%f\t%f\n" % (epoch + 1, epoch_loss / train_iteration, epoch_loss, test_loss_all / test_iteration, test_loss_all))
         epoch_end_time = time.time()
                 
-        print(f'Epoch:{epoch} Complete!')
+        print(f'Epoch:{epoch + 1} Complete!')
         print(f'Loss:{epoch_loss}...')
         print(f'Training Time: {epoch_end_time - epoch_start_time}')
+        print('Run Start Time: ' + str(time.ctime()))
         print("========================================================")
         print("========================================================")
         print()
