@@ -3,14 +3,15 @@ raw_data_file: "./.data/raw_data/"
 proc_data_file: "./.data/proc_data/"
 min_window_size: 40 #40
 max_window_size: 200 #200
-delete_previous: True
-generate_new: True
+delete_previous: False
+generate_new: False
 
 # model target
+batch_size: 1024
+epochs: 100 # 100
 input_size: 4
 output_size: 3
 learning_rate: 1e-4
-epochs: 100 # 100
 save_model_file: "./.model/ledvo_tcn"
 
 

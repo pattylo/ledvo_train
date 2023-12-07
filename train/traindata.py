@@ -23,9 +23,8 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 from concurrent.futures import ThreadPoolExecutor
 
 import torch.optim as optim
+from datetime import datetime
 
-
-import threading
 
 class CustomDataset(Dataset):
     def __init__(self, data_ptsss):
@@ -75,29 +74,33 @@ class traindata:
         
         with open(yaml_file_path, 'r') as file:
             self.yaml_data = yaml.safe_load(file)
-                
+        
+        ####################################################
+                        
         self.raw_data_folder = self.yaml_data.get('raw_data_file')
         self.proc_data_folder = self.yaml_data.get('proc_data_file')
         self.min_window_size = self.yaml_data.get('min_window_size')
         self.max_window_size = self.yaml_data.get('max_window_size')
+        
+        self.epochs = self.yaml_data.get('epochs')
+        self.batch_size = int(self.yaml_data.get('batch_size'))
         
         self.input_size = self.yaml_data.get('input_size')
         self.output_size = self.yaml_data.get('output_size')
         
         self.learning_rate = float(self.yaml_data.get('learning_rate'))
         
-        self.epochs = self.yaml_data.get('epochs')
         self.save_model_file = self.yaml_data.get('save_model_file')
+        
+        ####################################################
         
         self.epoch_no_save_pt = {key: None for key in range(10, 201, 10)}
             
-        self.data_load()
-        self.do_train()
-        pass
-    
-    def data_load(self):
         self.data_config_load()
         self.data_main_load()
+        self.do_train()
+        
+        pass        
     
     def data_main_load(self):
         custom_dataset = CustomDataset(self.data_of_tensors_pt)
@@ -109,13 +112,17 @@ class traindata:
         train_dataset, test_dataset = random_split(custom_dataset, [train_size, test_size])
 
         # Create DataLoader instances for training and testing
-        batch_size = 1024  # Adjust as needed
-        self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        self.test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
         
-        print(len(custom_dataset))
-        print(len(self.train_loader))
-        print(len(self.test_loader))
+        self.all_data_point_no = int(len(custom_dataset))
+        self.all_train_batches_no = int(len(self.train_loader))
+        self.all_test_batches_no = int(len(self.test_loader))
+        
+        print(f'ALL DATA POINT NO: {self.all_data_point_no}')
+        print(f'ALL TRAIN BATCHES POINT NO: {self.all_train_batches_no}')
+        print(f'ALL TRAIN BATCHES POINT NO: {self.all_test_batches_no}')
+        print(f'BATCH SIZE: {self.batch_size}')
         
     def data_config_load(self):        
         if os.path.exists(self.proc_data_folder) and os.path.isdir(self.proc_data_folder):
@@ -135,7 +142,7 @@ class traindata:
                 if os.path.exists(data_loadname):
                     self.data_of_tensors_pt.append(data_loadname)
                                         
-        print(len(self.data_of_tensors_pt)) # got this many pt files
+        print(f'PT FILES SIZE: {len(self.data_of_tensors_pt)}')
     
     
 ##############################################################################################################################        
@@ -153,13 +160,22 @@ class traindata:
             activation="GELU"
         )
         
+        print('\n\n\nMODEL AND DATA ALL LOADED!\n\n\n')
+        
         self.network.to(self.device)
         self.optimizer_init()
         
         logname = 'log.txt'
         self.f = open(logname, 'w')
         self.f.write('Run Start Time: ' + str(time.ctime()))
-        self.f.write('Learning Rate\t%f\n' % self.learning_rate)
+        self.f.write('\tLearning Rate\t%f\n' % self.learning_rate)
+        
+        self.f.write('Data Point No.:\t%f\n' % int(self.all_data_point_no))
+        self.f.write('Batch Size:\t%f\n' % int(self.batch_size))
+        self.f.write('Train Batch No.:\t%f\n' % int(self.all_train_batches_no))
+        self.f.write('Test Batch No.:\t%f\n' % int(self.all_test_batches_no))
+        
+        self.start_time = datetime.now()
         
         best_loss = float('inf')
         
@@ -174,7 +190,7 @@ class traindata:
             if (epoch + 1) in self.epoch_no_save_pt:
                 model_pt_name = self.save_model_file + '_' + str(epoch + 1) + '.pt'
                 if os.path.exists(model_pt_name):
-                        os.remove(model_pt_name)
+                    os.remove(model_pt_name)
                 torch.save(self.network.state_dict(), model_pt_name)
                 
                 if loss_temp < best_loss:
@@ -187,11 +203,14 @@ class traindata:
                     best_loss = loss_temp
         
         model_pt_name = self.save_model_file + '_final.pt'
+        if os.path.exists(model_pt_name):
+            os.remove(model_pt_name)
         torch.save(self.network.state_dict(), model_pt_name)
         
                 
     def one_epoch_train(self, epoch):
-        epoch_start_time = time.time()
+        
+        epoch_start_time = datetime.now()
         
         # train
         epoch_loss = 0.0
@@ -239,15 +258,26 @@ class traindata:
 
         # print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
         self.f.write("Epoch\t%d\tLoss\t%f\t%f\t,\tTest\tLoss\t%f\t%f\n" % (epoch + 1, epoch_loss / train_iteration, epoch_loss, test_loss_all / test_iteration, test_loss_all))
-        epoch_end_time = time.time()
+        
+        
+        epoch_end_time = datetime.now()
                 
         print(f'Epoch:{epoch + 1} Complete!')
-        print(f'Loss:{epoch_loss}...')
-        print(f'Training Time: {epoch_end_time - epoch_start_time}')
-        print('Run Start Time: ' + str(time.ctime()))
-        print("========================================================")
-        print("========================================================")
+        print(f'Loss:{epoch_loss}...\n')
+
+        print('This Epoch End Time: ' + str(time.ctime()))
         print()
+        elapsed_time = epoch_end_time - epoch_start_time
+        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        print(f"Epoch Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {int(seconds)} seconds.")
+        
+        elapsed_time = epoch_end_time - self.start_time
+        hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        print(f"Total Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {int(seconds)} seconds.")
+        print("\n========================================================")
+        print("========================================================\n\n")
         
         return epoch_loss
         

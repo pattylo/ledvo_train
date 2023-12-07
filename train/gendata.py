@@ -24,12 +24,34 @@ class gendata:
         self.delete_previous = self.yaml_data.get('delete_previous')
 
         self.generate_new = self.yaml_data.get('generate_new')   
-                
+        
+        print()
+        # delete previous  
         if self.delete_previous:
-            self.delete_previous_data()
-                
+            flag = input('DELETE PREVIOUS (Y)?')
+            if flag == 'y' or flag == 'Y':
+                self.delete_previous_data()
+                print('DELETE!')
+            else:
+                print('DID NOT DELETE PREVIOUS!')
+        else:
+            print('YAML ASKED ME NOT TO DELETE PREVIOUS!')
+        
+        print()
+        # generate new       
         if self.generate_new:
-            self.gen_all_data()  
+            flag = input('GENERATE NEW (Y)?')
+            
+            if flag == 'y' or flag == 'Y':
+                self.gen_all_data()
+                print('GENERATE!')
+            else:
+                print('DID NOT GENERATE NEW!')
+            
+        else:
+            print('YAML ASKED ME NOT TO GENERATE NEW!')
+        
+        print()
             
     def delete_previous_data(self):
         # Check if the specified path is a directory
