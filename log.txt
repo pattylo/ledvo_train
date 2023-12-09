@@ -1,7 +1,0 @@
-Run Start Time: Thu Dec  7 13:31:13 2023	Learning Rate	0.000100
-Data Point No.:	64202.000000
-Batch Size:	1024.000000
-Train Batch No.:	51.000000
-Test Batch No.:	13.000000
-Epoch	1	Loss	0.024007	1.224373	,	Test	Loss	0.023126	0.300635
-Epoch	2	Loss	0.023498	1.198385	,	Test	Loss	0.023105	0.300363

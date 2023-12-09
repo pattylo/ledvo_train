@@ -19,6 +19,7 @@ import torch.optim as optim
 import shutil
 
 import train.tcn as tcn
+import train.lstm as lstm
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 from concurrent.futures import ThreadPoolExecutor
 
@@ -82,19 +83,29 @@ class traindata:
         self.min_window_size = self.yaml_data.get('min_window_size')
         self.max_window_size = self.yaml_data.get('max_window_size')
         
-        self.epochs = self.yaml_data.get('epochs')
+        self.model_type = self.yaml_data.get('model_type')
+        
         self.batch_size = int(self.yaml_data.get('batch_size'))
+        self.epochs = self.yaml_data.get('epochs')
         
         self.input_size = self.yaml_data.get('input_size')
         self.output_size = self.yaml_data.get('output_size')
         
         self.learning_rate = float(self.yaml_data.get('learning_rate'))
         
-        self.save_model_file = self.yaml_data.get('save_model_file')
+        self.save_model_file = self.yaml_data.get('save_model_file') + self.model_type
+        
+        self.save_log_file = self.yaml_data.get('save_log_file') + self.model_type + '_' + str(self.batch_size) + '_log_' + str(datetime.now().strftime("%m%d")) +'.txt'
         
         ####################################################
         
         self.epoch_no_save_pt = {key: None for key in range(10, 201, 10)}
+        
+        ####################################################
+        
+        print("WE TRAIN " + self.model_type + " MODEL HERE!\n")
+        
+        ####################################################
             
         self.data_config_load()
         self.data_main_load()
@@ -151,22 +162,37 @@ class traindata:
         print("NOW START TO TRAIN!")
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
-        self.network = tcn.LedvoTcn(
-            self.input_size,
-            self.output_size,
-            [64, 64, 64, 64, 128, 128, 128],
-            kernel_size=2,
-            dropout=0.2,
-            activation="GELU"
-        )
+        if self.model_type == "TCN":
+            self.network = tcn.LedvoTcn(
+                self.input_size,
+                self.output_size,
+                [64, 64, 64, 64, 128, 128, 128],
+                kernel_size=2,
+                dropout=0.2,
+                activation="GELU"
+            )
+        elif self.model_type == "LSTM":
+            self.network = lstm.LedvoLSTM(
+                input_size=self.input_size,
+                output_size=self.output_size,
+                hidden_size=64,
+                num_layers=8,
+                batch_size=self.batch_size,
+                dropout=0.2
+            )
+        
         
         print('\n\n\nMODEL AND DATA ALL LOADED!\n\n\n')
         
         self.network.to(self.device)
         self.optimizer_init()
-        
-        logname = 'log.txt'
-        self.f = open(logname, 'w')
+                
+        if os.path.exists(self.save_log_file):
+            os.remove(self.save_log_file)
+            
+        self.f = open(self.save_log_file, 'w')
+        self.f.write(self.model_type)
+        self.f.write('\nBatch Size:\t%f\n' % int(self.batch_size))
         self.f.write('Run Start Time: ' + str(time.ctime()))
         self.f.write('\tLearning Rate\t%f\n' % self.learning_rate)
         
@@ -174,11 +200,11 @@ class traindata:
         self.f.write('Batch Size:\t%f\n' % int(self.batch_size))
         self.f.write('Train Batch No.:\t%f\n' % int(self.all_train_batches_no))
         self.f.write('Test Batch No.:\t%f\n' % int(self.all_test_batches_no))
-        
+                
         self.start_time = datetime.now()
         
         best_loss = float('inf')
-        
+                
         for epoch in tqdm(
             range(self.epochs),
             desc="TRAIN >>>",
@@ -206,6 +232,9 @@ class traindata:
         if os.path.exists(model_pt_name):
             os.remove(model_pt_name)
         torch.save(self.network.state_dict(), model_pt_name)
+
+        self.f.close()  
+
         
                 
     def one_epoch_train(self, epoch):
@@ -219,13 +248,21 @@ class traindata:
 
             input_train_data = data["inputs"]
             input_train_target = data["labels"]
+            # print(input_train_data.shape)
+            # print(len(input_train_data))
+            # print('gannnnn')
 
             input_train_data = input_train_data.to(self.device) 
             input_train_target = input_train_target.to(self.device) 
             
-            self.optimizer.zero_grad()
-            
+            self.optimizer.zero_grad()            
+                        
+            if self.model_type == "LSTM":
+                self.network.hidden = self.network.init_hidden(batch_size=len(input_train_data))
+                input_train_data = input_train_data.permute(0, 2, 1)
+
             outputs = self.network.forward(input_train_data)
+            # sys.exit()
             batch_loss = self.loss(dp_preds=outputs, dp_targets=input_train_target)
                         
             batch_loss = batch_loss.mean()
@@ -249,12 +286,16 @@ class traindata:
                 input_test_data = input_test_data.to(self.device) 
                 input_test_target = input_test_target.to(self.device) 
                 
+                if self.model_type == "LSTM":
+                    self.network.hidden = self.network.init_hidden(batch_size=len(input_test_data))
+                    input_test_data = input_test_data.permute(0, 2, 1)
+                    
                 outputs = self.network.forward(input_test_data)
                 test_loss = self.loss(dp_preds=outputs, dp_targets=input_test_target)
                 test_loss = test_loss.mean()
                 test_loss_all = test_loss_all + test_loss
                 test_iteration = test_iteration + 1
-                
+        
 
         # print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
         self.f.write("Epoch\t%d\tLoss\t%f\t%f\t,\tTest\tLoss\t%f\t%f\n" % (epoch + 1, epoch_loss / train_iteration, epoch_loss, test_loss_all / test_iteration, test_loss_all))
@@ -263,7 +304,8 @@ class traindata:
         epoch_end_time = datetime.now()
                 
         print(f'Epoch:{epoch + 1} Complete!')
-        print(f'Loss:{epoch_loss}...\n')
+        print(f'TRAINING Loss:{epoch_loss}...\n')
+        print(f'TESTING Loss:{test_loss_all}...\n')
 
         print('This Epoch End Time: ' + str(time.ctime()))
         print()
@@ -276,6 +318,9 @@ class traindata:
         hours, remainder = divmod(elapsed_time.total_seconds(), 3600)
         minutes, seconds = divmod(remainder, 60)
         print(f"Total Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {int(seconds)} seconds.")
+        if epoch + 1 == self.epochs:
+            self.f.write(f"Final Total Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {int(seconds)} seconds.")
+
         print("\n========================================================")
         print("========================================================\n\n")
         

@@ -5,5 +5,5 @@ import os
 
 if __name__ == "__main__":
     print('\033c')   
-    print("START TO TRAIN SCRIPT!\n")    
+    print("START TRAIN SCRIPT!\n")    
     data_config = td.traindata(os.getcwd() + "/config/train.yaml")

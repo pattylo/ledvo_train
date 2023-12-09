@@ -7,5 +7,5 @@ import os
 
 if __name__ == "__main__":
     print('\033c')
-    print("START TO GEN SCRIPT!\n")    
+    print("START GEN SCRIPT!\n")    
     data_config = ld.gendata(os.getcwd() + "/config/train.yaml")
