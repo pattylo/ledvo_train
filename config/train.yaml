@@ -2,9 +2,9 @@
 raw_data_file: "./.data/raw_data/"
 proc_data_file: "./.data/proc_data/"
 min_window_size: 40 #40
-max_window_size: 200 #200
-delete_previous: False
-generate_new: False
+max_window_size: 42 #200
+delete_previous: True
+generate_new: True
 
 # model target
 model_type: LSTM #TCN #LSTM
